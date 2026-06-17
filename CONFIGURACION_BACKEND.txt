@@ -1,0 +1,30 @@
+GOLDFISH - BACKEND OPERATIVO
+============================
+
+FUNCIONES IMPLEMENTADAS:
+- Registro real de clientes en MongoDB: POST /api/clientes/registro
+- Login cliente: POST /api/clientes/login
+- Login Google configurable: POST /api/clientes/auth/google
+- Perfil y direcciones protegidos con token JWT.
+- Catálogo de platos compartido con administración y cliente: GET /api/platos
+- CRUD administrativo conservado para platos: /get/platos
+
+REQUISITOS:
+1) Tener MongoDB ejecutándose localmente con la base goldfish.
+2) Ejecutar:
+   npm install
+   npm run dev
+
+GOOGLE (OPCIONAL):
+- Antes de levantar el backend define la variable GOOGLE_CLIENT_ID con el Client ID web de Google Cloud.
+- Usa el mismo Client ID en el FRONT:
+  src/app/config/cliente-contenido.ts
+- Sin Client ID, la web sigue funcionando mediante correo y contraseña.
+
+PEDIDOS WEB DEL CLIENTE - CUS26 A CUS29
+---------------------------------------
+POST /api/pedidos-cliente        Registra el pedido confirmado y su comprobante.
+GET  /api/pedidos-cliente/mios   Lista pedidos del cliente autenticado.
+GET  /api/pedidos-cliente/:codigo Consulta un pedido y su seguimiento.
+
+El historial personal requiere token del cliente; el registro permite invitado para no bloquear la compra.
