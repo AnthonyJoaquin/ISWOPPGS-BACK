@@ -33,6 +33,7 @@ const PedidoClienteSchema = new mongoose.Schema({
   total: { type: Number, required: true, min: 0 },
   estados: { type: [String], default: [] },
   estadoActual: { type: Number, default: 0, min: 0 },
+  estado: { type: String, enum: ['Pendiente', 'En preparación', 'Listo para entrega', 'Entregado', 'Cancelado'], default: 'Pendiente' },
   activo: { type: Boolean, default: true },
   stockProcesado: { type: Boolean, default: false },
   stockProcesadoAt: { type: Date, default: null }

@@ -1,4 +1,5 @@
 const PedidoCliente = require('../models/pedido-cliente.model');
+const Comanda = require('../models/comanda.model');
 const { descontarStockPorPlatos } = require('../services/inventario.service');
 
 function codigoNuevo() {
@@ -20,9 +21,37 @@ function normalizarPedido(body, token) {
     costoDelivery: Number(body.costoDelivery || 0),
     igvIncluido: Number(body.igvIncluido || 0),
     total: Number(body.total || 0),
-    estados: Array.isArray(body.estados) && body.estados.length ? body.estados : ['Pedido configurado', 'Pendiente de pago', 'En preparación', 'Entregado'],
-    estadoActual: Number.isInteger(body.estadoActual) ? body.estadoActual : 0
+    estados: Array.isArray(body.estados) && body.estados.length ? body.estados : ['Pendiente', 'En preparación', 'Listo para entrega', 'Entregado'],
+    estadoActual: Number.isInteger(body.estadoActual) ? body.estadoActual : 0,
+    estado: String(body.estado || 'Pendiente')
   };
+}
+
+async function notificarCocina(datos, pedido) {
+  const cliente = datos.clienteCorreo || datos.entrega?.telefono || 'Cliente web';
+  const observacion = [
+    datos.entrega?.direccion ? `${datos.entrega.direccion}, ${datos.entrega.distrito || ''}`.trim() : '',
+    datos.entrega?.referencia || ''
+  ].filter(Boolean).join(' | ');
+
+  return Comanda.findOneAndUpdate(
+    { pedidoCodigo: pedido.codigo },
+    {
+      pedidoCodigo: pedido.codigo,
+      cliente,
+      tipoPedido: datos.entrega?.modalidad || 'delivery',
+      mesa: '',
+      items: datos.items.map(item => ({
+        nombre: item.nombre,
+        cantidad: Number(item.cantidad) || 1,
+        estado: 'Pendiente'
+      })),
+      observacion,
+      total: datos.total,
+      recibido: false
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 }
 
 exports.registrarPedido = async (req, res) => {
@@ -58,11 +87,14 @@ exports.registrarPedido = async (req, res) => {
       });
     }
 
+    const comanda = await notificarCocina(datos, pedido);
+
     return res.status(201).json({
       mensaje: inventario.procesado
-        ? 'Pedido registrado y stock descontado correctamente.'
-        : 'Pedido registrado correctamente.',
+        ? 'Pedido confirmado, stock descontado y orden enviada a cocina.'
+        : 'Pedido confirmado y orden enviada a cocina.',
       pedido,
+      comanda,
       movimientosStock: inventario.movimientos
     });
   } catch (error) {
@@ -70,4 +102,3 @@ exports.registrarPedido = async (req, res) => {
     return res.status(400).json({ mensaje: error.message || 'No fue posible registrar el pedido.' });
   }
 };
-

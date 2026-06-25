@@ -11,11 +11,14 @@ const ComandaItemSchema = new mongoose.Schema(
 
 const ComandaSchema = new mongoose.Schema(
   {
-    cliente:    { type: String, required: true, trim: true },
-    tipoPedido: { type: String, default: 'salon' },
-    mesa:       { type: String, default: '' },
-    items:      { type: [ComandaItemSchema], default: [] },
-    recibido:   { type: Boolean, default: false }, // true = marcado recibido en vista
+    pedidoCodigo: { type: String, default: '', trim: true, index: true },
+    cliente:      { type: String, required: true, trim: true },
+    tipoPedido:   { type: String, default: 'delivery' },
+    mesa:         { type: String, default: '' },
+    items:        { type: [ComandaItemSchema], default: [] },
+    observacion:  { type: String, default: '' },
+    total:        { type: Number, default: 0, min: 0 },
+    recibido:     { type: Boolean, default: false },
   },
   { timestamps: true }
 );
