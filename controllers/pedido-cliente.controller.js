@@ -1,5 +1,6 @@
 const PedidoCliente = require('../models/pedido-cliente.model');
 const { descontarStockPorPlatos } = require('../services/inventario.service');
+const emailService = require('../services/email.service');
 
 function codigoNuevo() {
   return `GF-${Date.now().toString().slice(-6)}`;
@@ -71,3 +72,47 @@ exports.registrarPedido = async (req, res) => {
   }
 };
 
+<<<<<<< Updated upstream
+=======
+exports.enviarComprobanteCorreo = async (req, res) => {
+  try {
+    const { correo, pdfBase64, nombreArchivo, comprobante } = req.body || {};
+
+    const email = String(correo || '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ mensaje: 'El correo electrónico no es válido.' });
+    }
+
+    if (!pdfBase64 || typeof pdfBase64 !== 'string') {
+      return res.status(400).json({ mensaje: 'Debe adjuntar el PDF del comprobante en base64.' });
+    }
+
+    const envio = await emailService.enviarComprobanteCliente({
+      correo: email,
+      pdfBase64,
+      nombreArchivo: String(nombreArchivo || '').trim() || undefined,
+      comprobante: comprobante || {}
+    });
+
+    if (!envio.success) {
+      return res.status(500).json({
+        mensaje: 'No se pudo enviar el comprobante al correo indicado.',
+        error: envio.error
+      });
+    }
+
+    return res.status(200).json({
+      mensaje: `Comprobante enviado correctamente a ${email}.`,
+      messageId: envio.messageId
+    });
+  } catch (error) {
+    console.error('Error enviando comprobante por correo:', error);
+    return res.status(500).json({
+      mensaje: 'Ocurrió un error al enviar el comprobante por correo.',
+      error: error.message
+    });
+  }
+};
+>>>>>>> Stashed changes

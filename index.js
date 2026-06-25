@@ -23,7 +23,7 @@ const securityTokenRoutes = require('./routes/security-token');
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // 🔐 Auth
 app.use('/api/auth', authRoutes);

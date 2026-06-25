@@ -5,5 +5,6 @@ const autenticarClienteOpcional = require('../middleware/clienteAuthOpcional.mid
 
 // CUS26: registra el pedido configurado y confirmado. Los módulos de pago, comprobante, historial y perfil quedan fuera del alcance actual.
 router.post('/', autenticarClienteOpcional, pedidos.registrarPedido);
+router.post('/comprobante/enviar', pedidos.enviarComprobanteCorreo);
 
 module.exports = router;

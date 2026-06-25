@@ -2,22 +2,103 @@ const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
-    // Configuración del transportador de email
-    // Por ahora usaremos Gmail. Deberás configurar las credenciales en .env
+    const user = String(process.env.EMAIL_USER || '').trim();
+    // Google muestra la app password con espacios en bloques de 4; los removemos.
+    const pass = String(process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+    const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+    const smtpPort = Number(process.env.SMTP_PORT || 465);
+    const smtpSecure = String(process.env.SMTP_SECURE || 'true').toLowerCase() === 'true';
+
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD // Usa una contraseña de aplicación de Google
+        user,
+        pass
+      },
+      tls: {
+        minVersion: 'TLSv1.2'
       }
     });
+
+    this.emailUser = user;
+  }
+
+  async enviarComprobanteCliente({ correo, pdfBase64, nombreArchivo, comprobante = {} }) {
+    const pedidoCodigo = comprobante.pedidoCodigo || 'N/A';
+    const tipo = comprobante.tipo || 'COMPROBANTE';
+    const documento = comprobante.documento || 'N/A';
+    const fechaEmision = comprobante.fechaEmision
+      ? new Date(comprobante.fechaEmision).toLocaleString('es-PE')
+      : new Date().toLocaleString('es-PE');
+
+    const mailOptions = {
+      from: `"Goldfish Sushi" <${this.emailUser}>`,
+      to: correo,
+      subject: `${tipo} electrónica - Pedido ${pedidoCodigo}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            body { font-family: Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 24px; }
+            .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+            .title { color: #FF6B35; margin: 0 0 8px; }
+            .subtitle { margin: 0 0 20px; color: #444; }
+            .box { background: #fff7f3; border-left: 4px solid #FF6B35; padding: 14px; margin: 18px 0; }
+            .muted { color: #666; font-size: 14px; }
+            .footer { margin-top: 24px; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h2 class="title">Comprobante electrónico de tu pedido</h2>
+            <p class="subtitle">Adjuntamos el PDF del comprobante solicitado en Goldfish Sushi.</p>
+
+            <div class="box">
+              <div><strong>Pedido:</strong> ${pedidoCodigo}</div>
+              <div><strong>Tipo:</strong> ${tipo}</div>
+              <div><strong>Documento:</strong> ${documento}</div>
+              <div><strong>Fecha de emisión:</strong> ${fechaEmision}</div>
+            </div>
+
+            <p class="muted">Si no reconoces esta solicitud, ignora este mensaje.</p>
+
+            <div class="footer">
+              Este es un correo automático de Goldfish Sushi.
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Comprobante electrónico\n\nPedido: ${pedidoCodigo}\nTipo: ${tipo}\nDocumento: ${documento}\nFecha de emisión: ${fechaEmision}\n\nAdjunto encontrarás tu comprobante en PDF.`,
+      attachments: [
+        {
+          filename: nombreArchivo || `comprobante-${pedidoCodigo}.pdf`,
+          content: Buffer.from(pdfBase64, 'base64'),
+          contentType: 'application/pdf'
+        }
+      ]
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Comprobante enviado por email:', info.messageId);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      const mensaje = this.formatearErrorEmail(error);
+      console.error('❌ Error enviando comprobante por email:', mensaje);
+      return { success: false, error: mensaje };
+    }
   }
 
   async enviarCodigoSeguridad(email, token, accion, datos = {}) {
     const accionTexto = this.obtenerTextoAccion(accion, datos);
     
     const mailOptions = {
-      from: `"Sistema Goldfish" <${process.env.EMAIL_USER}>`,
+      from: `"Sistema Goldfish" <${this.emailUser}>`,
       to: email,
       subject: '🔐 Código de Seguridad - Goldfish Admin',
       html: `
@@ -93,9 +174,21 @@ class EmailService {
       console.log('✅ Email enviado:', info.messageId);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error('❌ Error enviando email:', error);
-      return { success: false, error: error.message };
+      const mensaje = this.formatearErrorEmail(error);
+      console.error('❌ Error enviando email:', mensaje);
+      return { success: false, error: mensaje };
     }
+  }
+
+  formatearErrorEmail(error) {
+    const raw = String(error?.message || error || 'Error de email desconocido');
+    if (/Invalid login|BadCredentials|Username and Password not accepted/i.test(raw)) {
+      return 'Credenciales SMTP inválidas. Verifica EMAIL_USER y EMAIL_PASSWORD (App Password de Google) en .env.';
+    }
+    if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(raw)) {
+      return 'No se pudo conectar al servidor SMTP. Verifica SMTP_HOST/SMTP_PORT y tu conexión.';
+    }
+    return raw;
   }
 
   obtenerTextoAccion(accion, datos) {
